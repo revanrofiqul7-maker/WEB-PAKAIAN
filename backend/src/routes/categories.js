@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../db/pool");
-const { verifyToken, verifyAdmin } = require("../middleware/authorization");
+const { verifyToken, verifyAdmin, verifyCategoryNotInUse } = require("../middleware/authorization");
 
 // === GET all categories ===
 router.get("/", verifyToken, verifyAdmin, async (req, res) => {
@@ -52,8 +52,8 @@ router.put("/:id", verifyToken, verifyAdmin, async (req, res) => {
   }
 });
 
-// === DELETE category ===
-router.delete("/:id", verifyToken, verifyAdmin, async (req, res) => {
+// === DELETE category (dengan validasi) ===
+router.delete("/:id", verifyToken, verifyAdmin, verifyCategoryNotInUse, async (req, res) => {
   try {
     await pool.query("DELETE FROM categories WHERE id=$1", [req.params.id]);
     res.json({ message: "Category deleted" });
@@ -98,7 +98,7 @@ module.exports.swaggerDocs = {
     get: {
       summary: "Ambil kategori berdasarkan ID",
       tags: ["Category (admin)"],
-      security: [{ bearerAuth: [] }],  // ← DITAMBAHKAN DI SINI
+      security: [{ bearerAuth: [] }],
       parameters: [
         { name: "id", in: "path", required: true, schema: { type: "integer" } }
       ],
@@ -108,7 +108,7 @@ module.exports.swaggerDocs = {
     put: {
       summary: "Perbarui kategori",
       tags: ["Category (admin)"],
-      security: [{ bearerAuth: [] }],  // ← DITAMBAHKAN DI SINI
+      security: [{ bearerAuth: [] }],
       parameters: [
         { name: "id", in: "path", required: true, schema: { type: "integer" } }
       ],
@@ -132,7 +132,7 @@ module.exports.swaggerDocs = {
     delete: {
       summary: "Hapus kategori berdasarkan ID",
       tags: ["Category (admin)"],
-      security: [{ bearerAuth: [] }],  // ← DITAMBAHKAN DI SINI
+      security: [{ bearerAuth: [] }],
       parameters: [
         { name: "id", in: "path", required: true, schema: { type: "integer" } }
       ],

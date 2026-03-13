@@ -1,0 +1,315 @@
+.admin-container {
+  display: flex;
+  height: 100vh;
+  background: #f5f5f5;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+}
+
+.admin-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: #1a1a1a;
+  color: #fff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 30px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  border-bottom: none;
+}
+
+.admin-nav h1 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: #fff;
+}
+
+.nav-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logout-btn {
+  background: #fff;
+  border: none;
+  color: #1a1a1a;
+  padding: 8px 16px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s;
+  font-weight: 600;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+}
+
+.logout-btn:hover {
+  background: #e8e8e8;
+  border: none;
+}
+
+.admin-sidebar {
+  position: fixed;
+  left: 0;
+  top: 60px;
+  width: 220px;
+  height: calc(100vh - 60px);
+  background: #fff;
+  border-right: 1px solid #e8e8e8;
+  overflow-y: auto;
+  z-index: 50;
+}
+
+.sidebar-menu {
+  list-style: none;
+  padding: 20px 0;
+  margin: 0;
+}
+
+.sidebar-menu li {
+  margin: 0;
+}
+
+.sidebar-menu a {
+  display: block;
+  padding: 14px 18px;
+  color: #666;
+  text-decoration: none;
+  transition: all 0.2s;
+  border-left: 3px solid transparent;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.sidebar-menu a:hover {
+  background: #f8f8f8;
+  border-left-color: #1a1a1a;
+  color: #1a1a1a;
+}
+
+.admin-content {
+  margin-left: 220px;
+  margin-top: 60px;
+  padding: 24px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.welcome-box {
+  background: #fff;
+  padding: 40px;
+  border-radius: 3px;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e8e8e8;
+}
+
+.welcome-box h2 {
+  color: #1a1a1a;
+  margin-bottom: 12px;
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: -0.3px;
+}
+
+.welcome-box p {
+  color: #666;
+  font-size: 14px;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 500px;
+}
+
+form input,
+form textarea,
+form select {
+  padding: 10px 12px;
+  border: 1px solid #e8e8e8;
+  border-radius: 3px;
+  font-size: 13px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  background: #fff;
+}
+
+form textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+form input:focus,
+form textarea:focus,
+form select:focus {
+  outline: none;
+  border-color: #1a1a1a;
+  box-shadow: 0 0 0 2px rgba(26, 26, 26, 0.08);
+}
+
+form label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #1a1a1a;
+  font-weight: 500;
+}
+
+form input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #1a1a1a;
+}
+
+.btn-primary,
+.btn-success,
+.btn-edit,
+.btn-delete,
+.btn-deactivate {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s;
+  font-weight: 600;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+}
+
+.btn-primary {
+  background: #1a1a1a;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #333;
+}
+
+.btn-success {
+  background: #1a1a1a;
+  color: white;
+}
+
+.btn-success:hover {
+  background: #333;
+}
+
+.btn-edit {
+  background: #1a1a1a;
+  color: white;
+  padding: 6px 12px;
+  font-size: 12px;
+  margin-right: 5px;
+}
+
+.btn-edit:hover {
+  background: #333;
+}
+
+.btn-delete {
+  background: #666;
+  color: white;
+  padding: 6px 12px;
+  font-size: 12px;
+  margin-right: 5px;
+}
+
+.btn-delete:hover {
+  background: #333;
+}
+
+.btn-deactivate {
+  background: #999;
+  color: white;
+  padding: 6px 12px;
+  font-size: 12px;
+  margin-right: 5px;
+}
+
+.btn-deactivate:hover {
+  background: #666;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 3px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e8e8e8;
+}
+
+.admin-table thead {
+  background: #1a1a1a;
+  color: #fff;
+  font-weight: 600;
+  border-bottom: none;
+}
+
+.admin-table th {
+  padding: 14px 12px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.admin-table td {
+  padding: 12px;
+  border-bottom: 1px solid #e8e8e8;
+  font-size: 13px;
+  color: #333;
+}
+
+.admin-table tbody tr:hover {
+  background: #fafafa;
+}
+
+.admin-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+@media (max-width: 768px) {
+  .admin-sidebar {
+    width: 180px;
+  }
+
+  .admin-content {
+    margin-left: 180px;
+    padding: 16px;
+  }
+
+  .admin-table {
+    font-size: 12px;
+  }
+
+  .admin-table th,
+  .admin-table td {
+    padding: 8px 10px;
+  }
+
+  form {
+    max-width: 100%;
+  }
+
+  .btn-primary,
+  .btn-success,
+  .btn-edit,
+  .btn-delete,
+  .btn-deactivate {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+}

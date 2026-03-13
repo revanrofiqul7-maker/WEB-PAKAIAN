@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import './register.css';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:4000';
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
 export default function Register() {
   const [username, setUsername] = useState('');
@@ -48,10 +48,10 @@ export default function Register() {
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_URL}/auth/register`, {
+      const res = await fetch(`${API_URL}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, email, password })
+        body: JSON.stringify({ username, email, password, name: username })
       });
 
       const data = await res.json();
@@ -77,7 +77,7 @@ export default function Register() {
     <div className="register-container">
       <div className="register-box">
         <div className="register-header">
-          <h1>👗 Toko Pakaian</h1>
+          <h1>Toko Pakaian</h1>
           <p>Buat Akun Baru</p>
         </div>
 

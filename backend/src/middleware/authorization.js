@@ -1,4 +1,5 @@
 const jwt = require("jsonwebtoken");
+const pool = require("../db/pool");
 require("dotenv").config();
 
 // ====== Verifikasi Token ======
@@ -22,4 +23,32 @@ function verifyAdmin(req, res, next) {
   next();
 }
 
-module.exports = { verifyToken, verifyAdmin };
+// ====== Verifikasi Customer/User biasa ======
+function verifyCustomer(req, res, next) {
+  if (req.user.role !== "customer") {
+    return res.status(403).json({ error: "Forbidden - Customer only" });
+  }
+  next();
+}
+
+// ====== Verifikasi Kategori tidak dipakai produk sebelum delete ======
+async function verifyCategoryNotInUse(req, res, next) {
+  try {
+    const categoryId = req.params.id;
+    const result = await pool.query(
+      "SELECT COUNT(*) as count FROM products WHERE category_id = $1",
+      [categoryId]
+    );
+    
+    if (result.rows[0].count > 0) {
+      return res.status(400).json({ 
+        error: "Cannot delete category - it's being used by products" 
+      });
+    }
+    next();
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+module.exports = { verifyToken, verifyAdmin, verifyCustomer, verifyCategoryNotInUse };

@@ -4,7 +4,7 @@ const pool = require('../db/pool');
 const { verifyToken, verifyAdmin } = require("../middleware/authorization");
 
 // === GET semua user (Admin Only) ===
-router.get('/', async (req, res) => {
+router.get('/', verifyToken, verifyAdmin, async (req, res) => {
   try {
     const result = await pool.query('SELECT id, name, username, email, role, membership FROM users');
     res.json(result.rows);
@@ -13,7 +13,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-// === GET profil user login ===
+// === GET profil user login (Untuk semua user yang sudah login) ===
 router.get('/profile', verifyToken, async (req, res) => {
   try {
     const user = await pool.query('SELECT id, name, username, email, role, membership FROM users WHERE id=$1', [req.user.id]);
@@ -23,8 +23,8 @@ router.get('/profile', verifyToken, async (req, res) => {
   }
 });
 
-// === POST tambah user baru ===
-router.post('/', async (req, res) => {
+// === POST tambah user baru (Admin Only) ===
+router.post('/', verifyToken, verifyAdmin, async (req, res) => {
   try {
     const { name, username, email, password, role, membership } = req.body;
 
@@ -48,12 +48,51 @@ router.post('/', async (req, res) => {
   }
 });
 
-// === PUT nonaktifkan user (Admin) ===
-router.put('/deactivate-user', async (req, res) => {
+// === PUT update user (Admin Only) ===
+router.put('/:id', verifyToken, verifyAdmin, async (req, res) => {
   try {
-    const { id } = req.body;
-    await pool.query('UPDATE users SET membership = NULL WHERE id=$1', [id]);
+    const { name, username, email, role, membership } = req.body;
+    const result = await pool.query(
+      `UPDATE users SET name=$1, username=$2, email=$3, role=$4, membership=$5 WHERE id=$6 
+       RETURNING id, name, username, email, role, membership`,
+      [name, username, email, role, membership, req.params.id]
+    );
+    
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    
+    res.json({
+      message: "User updated successfully",
+      data: result.rows[0],
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// === PUT nonaktifkan user (Admin Only) ===
+router.put('/:id/deactivate', verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const userId = req.params.id;
+    await pool.query('UPDATE users SET membership = NULL WHERE id=$1', [userId]);
     res.json({ message: 'User deactivated successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// === DELETE user (Admin Only) ===
+router.delete('/:id', verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const result = await pool.query('DELETE FROM users WHERE id=$1', [userId]);
+    
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    
+    res.json({ message: "User deleted successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

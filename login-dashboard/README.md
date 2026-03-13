@@ -121,7 +121,7 @@ Fitur yang dapat dikembangkan lebih lanjut:
 - Sistem pembayaran
 - Email verification
 - Authentication JWT
-- Upload produk image
+- Upload produk image (frontend now allows file selection or URL; backend needs multer and '/uploads' static folder)
 - Rating dan review pelanggan
 - Wishlist
 - Shopping cart

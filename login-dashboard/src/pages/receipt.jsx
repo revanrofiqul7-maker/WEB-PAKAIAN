@@ -27,7 +27,7 @@ export default function Receipt() {
     <div className="receipt-container">
       <div className="receipt-box">
         <div className="receipt-header">
-          <h1>👗 TOKO PAKAIAN</h1>
+          <h1>TOKO PAKAIAN</h1>
           <p>Struk Pembayaran / Invoice</p>
         </div>
 
@@ -43,7 +43,7 @@ export default function Receipt() {
           <div className="divider"></div>
 
           <div className="customer-info">
-            <h3>📋 DATA PELANGGAN</h3>
+            <h3>DATA PELANGGAN</h3>
             <p>
               <strong>Nama:</strong> {order.customer.fullName}
             </p>
@@ -61,7 +61,7 @@ export default function Receipt() {
           <div className="divider"></div>
 
           <div className="items-section">
-            <h3>📦 DAFTAR BARANG</h3>
+            <h3>DAFTAR BARANG</h3>
             <table className="receipt-table">
               <thead>
                 <tr>
@@ -127,17 +127,17 @@ export default function Receipt() {
           <div className="divider"></div>
 
           <div className="receipt-footer">
-            <p>Terima kasih telah berbelanja di Toko Pakaian kami! 🙏</p>
+            <p>Terima kasih telah berbelanja di Toko Pakaian kami!</p>
             <p className="footer-note">Struk ini dapat dijadikan bukti pembayaran</p>
           </div>
         </div>
 
         <div className="receipt-actions">
           <button onClick={handlePrint} className="btn-print">
-            🖨️ Cetak Struk
+            Cetak Struk
           </button>
           <button onClick={() => navigate('/dashboard')} className="btn-home">
-            🏠 Kembali ke Dashboard
+            Kembali ke Dashboard
           </button>
         </div>
       </div>

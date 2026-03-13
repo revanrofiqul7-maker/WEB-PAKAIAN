@@ -1,10 +1,10 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../db/pool");
-const { verifyToken } = require("../middleware/authorization");
+const { verifyToken, verifyAdmin, verifyCustomer } = require("../middleware/authorization");
 
-// === GET all transactions ===
-router.get("/", verifyToken, async (req, res) => {
+// === GET all transactions (Admin Only) ===
+router.get("/", verifyToken, verifyAdmin, async (req, res) => {
   try {
     const result = await pool.query("SELECT * FROM transactions ORDER BY id ASC");
     res.json(result.rows);
@@ -13,21 +13,32 @@ router.get("/", verifyToken, async (req, res) => {
   }
 });
 
-// === GET transaction by ID ===
+// === GET transaction by ID (Admin dapat read semua, Customer hanya bisa read milik sendiri) ===
 router.get("/:id", verifyToken, async (req, res) => {
   try {
     const result = await pool.query("SELECT * FROM transactions WHERE id=$1", [req.params.id]);
     if (result.rowCount === 0) return res.status(404).json({ error: "Transaction not found" });
-    res.json(result.rows[0]);
+    
+    const transaction = result.rows[0];
+    
+    // Jika customer, pastikan transaksi adalah miliknya sendiri
+    if (req.user.role === "customer" && transaction.customer_id !== req.user.id) {
+      return res.status(403).json({ error: "Forbidden - Cannot access other customer's transaction" });
+    }
+    
+    res.json(transaction);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// === POST new transaction ===
-router.post("/", verifyToken, async (req, res) => {
+// === POST new transaction (Customer Only) ===
+router.post("/", verifyToken, verifyCustomer, async (req, res) => {
   try {
-    const { customer_id, cashier_by, discount_applied, total_amount } = req.body;
+    const { cashier_by, discount_applied, total_amount } = req.body;
+    
+    // Customer ID adalah dari token user yang login
+    const customer_id = req.user.id;
 
     const result = await pool.query(
       `INSERT INTO transactions (customer_id, cashier_by, discount_applied, total_amount)
@@ -41,35 +52,6 @@ router.post("/", verifyToken, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
-// === PUT update transaction ===
-router.put("/:id", verifyToken, async (req, res) => {
-  try {
-    const { customer_id, cashier_by, discount_applied, total_amount } = req.body;
-    const result = await pool.query(
-      `UPDATE transactions
-       SET customer_id = $1,
-           cashier_by = $2,
-           discount_applied = $3,
-           total_amount = $4
-       WHERE id = $5
-       RETURNING *`,
-      [customer_id, cashier_by, discount_applied, total_amount, req.params.id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Transaction not found" });
-    }
-
-    res.json({
-      message: "Transaction updated successfully",
-      data: result.rows[0],
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 
 module.exports = router;
 
@@ -108,7 +90,7 @@ module.exports.swaggerDocs = {
     get: {
       summary: "Ambil transaksi berdasarkan ID",
       tags: ["Transactions (cashier)"],
-      security: [{ bearerAuth: [] }],   // ← DITAMBAHKAN DI SINI
+      security: [{ bearerAuth: [] }],
       parameters: [
         { name: "id", in: "path", required: true, schema: { type: "integer" } }
       ],
@@ -118,7 +100,7 @@ module.exports.swaggerDocs = {
     put: {
       summary: "Perbarui transaksi berdasarkan ID",
       tags: ["Transactions (cashier)"],
-      security: [{ bearerAuth: [] }],   // ← DITAMBAHKAN DI SINI
+      security: [{ bearerAuth: [] }],
       parameters: [
         { name: "id", in: "path", required: true, schema: { type: "integer" } }
       ],
