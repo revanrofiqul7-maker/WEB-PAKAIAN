@@ -4,8 +4,8 @@ const path = require('path');
 const fs = require('fs');
 require('dotenv').config();
 const app = express();
-// always use port 5000 so frontend can reach backend without extra setup
-const PORT = 5000;
+// Use dynamic port from environment (Railway) or default to 5000 (local)
+const PORT = process.env.PORT || 5000;
 
 // ensure upload directory exists
 const uploadDir = path.join(__dirname, 'public', 'uploads');

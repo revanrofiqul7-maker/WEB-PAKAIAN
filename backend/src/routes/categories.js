@@ -1,13 +1,18 @@
 const express = require("express");
 const router = express.Router();
-const pool = require("../db/pool");
+const supabase = require("../db/supabase");
 const { verifyToken, verifyAdmin, verifyCategoryNotInUse } = require("../middleware/authorization");
 
 // === GET all categories ===
 router.get("/", verifyToken, verifyAdmin, async (req, res) => {
   try {
-    const result = await pool.query("SELECT * FROM categories ORDER BY id ASC");
-    res.json(result.rows);
+    const { data, error } = await supabase
+      .from('categories')
+      .select('*')
+      .order('id', { ascending: true });
+    
+    if (error) throw error;
+    res.json(data || []);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -16,9 +21,20 @@ router.get("/", verifyToken, verifyAdmin, async (req, res) => {
 // === GET category by ID ===
 router.get("/:id", verifyToken, verifyAdmin, async (req, res) => {
   try {
-    const result = await pool.query("SELECT * FROM categories WHERE id=$1", [req.params.id]);
-    if (result.rowCount === 0) return res.status(404).json({ error: "Category not found" });
-    res.json(result.rows[0]);
+    const { data, error } = await supabase
+      .from('categories')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+    
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return res.status(404).json({ error: "Category not found" });
+      }
+      throw error;
+    }
+    
+    res.json(data);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -28,11 +44,17 @@ router.get("/:id", verifyToken, verifyAdmin, async (req, res) => {
 router.post("/", verifyToken, verifyAdmin, async (req, res) => {
   try {
     const { category_name, description } = req.body;
-    const result = await pool.query(
-      "INSERT INTO categories (category_name, description) VALUES ($1, $2) RETURNING *",
-      [category_name, description]
-    );
-    res.status(201).json(result.rows[0]);
+    
+    const { data, error } = await supabase
+      .from('categories')
+      .insert([{
+        category_name,
+        description
+      }])
+      .select('*');
+    
+    if (error) throw error;
+    res.status(201).json(data[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -42,11 +64,19 @@ router.post("/", verifyToken, verifyAdmin, async (req, res) => {
 router.put("/:id", verifyToken, verifyAdmin, async (req, res) => {
   try {
     const { category_name, description } = req.body;
-    const result = await pool.query(
-      "UPDATE categories SET category_name=$1, description=$2 WHERE id=$3 RETURNING *",
-      [category_name, description, req.params.id]
-    );
-    res.json(result.rows[0]);
+    
+    const { data, error } = await supabase
+      .from('categories')
+      .update({ category_name, description })
+      .eq('id', req.params.id)
+      .select('*');
+    
+    if (error) throw error;
+    if (!data || data.length === 0) {
+      return res.status(404).json({ error: "Category not found" });
+    }
+    
+    res.json(data[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -55,7 +85,12 @@ router.put("/:id", verifyToken, verifyAdmin, async (req, res) => {
 // === DELETE category (dengan validasi) ===
 router.delete("/:id", verifyToken, verifyAdmin, verifyCategoryNotInUse, async (req, res) => {
   try {
-    await pool.query("DELETE FROM categories WHERE id=$1", [req.params.id]);
+    const { error } = await supabase
+      .from('categories')
+      .delete()
+      .eq('id', req.params.id);
+    
+    if (error) throw error;
     res.json({ message: "Category deleted" });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -106,7 +141,7 @@ module.exports.swaggerDocs = {
     },
 
     put: {
-      summary: "Perbarui kategori",
+      summary: "Perbarui kategori berdasarkan ID",
       tags: ["Category (admin)"],
       security: [{ bearerAuth: [] }],
       parameters: [

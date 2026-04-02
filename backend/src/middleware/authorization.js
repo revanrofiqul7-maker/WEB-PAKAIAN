@@ -1,5 +1,5 @@
 const jwt = require("jsonwebtoken");
-const pool = require("../db/pool");
+const supabase = require("../db/supabase");
 require("dotenv").config();
 
 // ====== Verifikasi Token ======
@@ -31,16 +31,27 @@ function verifyCustomer(req, res, next) {
   next();
 }
 
+// ====== Verifikasi Admin atau Cashier ======
+function verifyAdminOrCashier(req, res, next) {
+  if (req.user.role !== "admin" && req.user.role !== "cashier") {
+    return res.status(403).json({ error: "Forbidden - Admin or Cashier only" });
+  }
+  next();
+}
+
 // ====== Verifikasi Kategori tidak dipakai produk sebelum delete ======
 async function verifyCategoryNotInUse(req, res, next) {
   try {
     const categoryId = req.params.id;
-    const result = await pool.query(
-      "SELECT COUNT(*) as count FROM products WHERE category_id = $1",
-      [categoryId]
-    );
+    const { data, error } = await supabase
+      .from('products')
+      .select('id', { count: 'exact', head: true })
+      .eq('category_id', categoryId);
     
-    if (result.rows[0].count > 0) {
+    if (error) throw error;
+    
+    // count property is only available with count: 'exact'
+    if (data && data.length > 0) {
       return res.status(400).json({ 
         error: "Cannot delete category - it's being used by products" 
       });
@@ -51,4 +62,5 @@ async function verifyCategoryNotInUse(req, res, next) {
   }
 }
 
-module.exports = { verifyToken, verifyAdmin, verifyCustomer, verifyCategoryNotInUse };
+module.exports = { verifyToken, verifyAdmin, verifyCustomer, verifyAdminOrCashier, verifyCategoryNotInUse };
+

@@ -1,13 +1,18 @@
 const express = require("express");
 const router = express.Router();
-const pool = require("../db/pool");
+const supabase = require("../db/supabase");
 const { verifyToken, verifyAdmin, verifyCustomer } = require("../middleware/authorization");
 
 // === GET all transactions (Admin Only) ===
 router.get("/", verifyToken, verifyAdmin, async (req, res) => {
   try {
-    const result = await pool.query("SELECT * FROM transactions ORDER BY id ASC");
-    res.json(result.rows);
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('*')
+      .order('id', { ascending: true });
+    
+    if (error) throw error;
+    res.json(data || []);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -16,10 +21,20 @@ router.get("/", verifyToken, verifyAdmin, async (req, res) => {
 // === GET transaction by ID (Admin dapat read semua, Customer hanya bisa read milik sendiri) ===
 router.get("/:id", verifyToken, async (req, res) => {
   try {
-    const result = await pool.query("SELECT * FROM transactions WHERE id=$1", [req.params.id]);
-    if (result.rowCount === 0) return res.status(404).json({ error: "Transaction not found" });
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
     
-    const transaction = result.rows[0];
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return res.status(404).json({ error: "Transaction not found" });
+      }
+      throw error;
+    }
+    
+    const transaction = data;
     
     // Jika customer, pastikan transaksi adalah miliknya sendiri
     if (req.user.role === "customer" && transaction.customer_id !== req.user.id) {
@@ -40,14 +55,18 @@ router.post("/", verifyToken, verifyCustomer, async (req, res) => {
     // Customer ID adalah dari token user yang login
     const customer_id = req.user.id;
 
-    const result = await pool.query(
-      `INSERT INTO transactions (customer_id, cashier_by, discount_applied, total_amount)
-       VALUES ($1, $2, $3, $4)
-       RETURNING *`,
-      [customer_id, cashier_by, discount_applied, total_amount]
-    );
+    const { data, error } = await supabase
+      .from('transactions')
+      .insert([{
+        customer_id,
+        cashier_by: cashier_by ? parseInt(cashier_by) : null,
+        discount_applied: discount_applied ? parseFloat(discount_applied) : 0,
+        total_amount: parseFloat(total_amount)
+      }])
+      .select('*');
 
-    res.status(201).json(result.rows[0]);
+    if (error) throw error;
+    res.status(201).json(data[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -97,20 +116,16 @@ module.exports.swaggerDocs = {
       responses: { 200: { description: "Detail transaksi" } }
     },
 
-    put: {
-      summary: "Perbarui transaksi berdasarkan ID",
+    post: {
+      summary: "Buat transaksi baru",
       tags: ["Transactions (cashier)"],
       security: [{ bearerAuth: [] }],
-      parameters: [
-        { name: "id", in: "path", required: true, schema: { type: "integer" } }
-      ],
       requestBody: {
         content: {
           "application/json": {
             schema: {
               type: "object",
               properties: {
-                customer_id: { type: "integer" },
                 cashier_by: { type: "integer" },
                 discount_applied: { type: "number" },
                 total_amount: { type: "number" }
@@ -119,7 +134,7 @@ module.exports.swaggerDocs = {
           }
         }
       },
-      responses: { 200: { description: "Transaksi diperbarui" } }
+      responses: { 201: { description: "Transaksi berhasil dibuat" } }
     }
   }
 };

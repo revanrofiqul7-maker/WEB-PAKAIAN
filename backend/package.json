@@ -2,11 +2,16 @@
   "name": "toko-pakaian-backend",
   "version": "1.0.0",
   "main": "index.js",
+  "engines": {
+    "node": "18.x",
+    "npm": "9.x"
+  },
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
     "axios": "^1.13.4",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
@@ -14,7 +19,6 @@
     "express": "^5.1.0",
     "init": "^0.1.2",
     "jsonwebtoken": "^9.0.2",
-    "pg": "^8.16.3",
     "react": "^19.2.4",
     "router-dom": "^3.0.3",
     "swagger-ui-express": "^5.0.1",

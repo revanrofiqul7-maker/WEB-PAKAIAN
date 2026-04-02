@@ -1,4 +1,4 @@
-import React, { useContext, useState, useEffect } from 'react';
+import React, { useContext, useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
 
@@ -7,6 +7,7 @@ const API_BASE = 'http://localhost:5000';
 export default function AdminProducts() {
   const { token, logout } = useContext(AuthContext);
   const navigate = useNavigate();
+  const formRef = useRef(null);
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -128,23 +129,48 @@ export default function AdminProducts() {
 
       <div className="admin-content">
         <div style={{ marginBottom: '20px' }}>
-          <button onClick={() => { setShowForm(!showForm); setEditingId(null); setFormData({ name: '', description: '', price: '', stock: '', category_id: '' }); }} className="btn-primary">
-            {showForm ? 'Batal' : 'Tambah Produk'}
+          <button onClick={() => { setShowForm(true); setEditingId(null); setFormData({ name: '', description: '', price: '', stock: '', category_id: '' }); }} className="btn-primary">
+            Tambah Produk
           </button>
         </div>
 
-        {showForm && (
-          <form onSubmit={handleSubmit} style={{ background: '#f5f5f5', padding: '20px', marginBottom: '20px', borderRadius: '8px' }}>
-            <input type="text" placeholder="Nama Produk" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
-            <textarea placeholder="Deskripsi" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })}></textarea>
-            <input type="number" placeholder="Harga" step="0.01" value={formData.price} onChange={(e) => setFormData({ ...formData, price: e.target.value })} required />
-            <input type="number" placeholder="Stok" value={formData.stock} onChange={(e) => setFormData({ ...formData, stock: e.target.value })} required />
-            <select value={formData.category_id} onChange={(e) => setFormData({ ...formData, category_id: e.target.value })} required>
-              <option value="">Pilih Kategori</option>
-              {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.category_name}</option>)}
-            </select>
-            <button type="submit" className="btn-success">{editingId ? 'Update' : 'Simpan'}</button>
-          </form>
+        {/* Modal Form Tambah Produk Baru (hanya saat tidak edit) */}
+        {showForm && !editingId && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 1000
+          }}>
+            <form ref={formRef} onSubmit={handleSubmit} style={{ 
+              background: '#fff', 
+              padding: '30px', 
+              borderRadius: '8px',
+              width: '90%',
+              maxWidth: '500px',
+              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+            }}>
+              <h2 style={{ marginTop: 0, marginBottom: '20px' }}>Tambah Produk Baru</h2>
+              <input type="text" placeholder="Nama Produk" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required style={{ width: '100%', marginBottom: '15px', padding: '10px', borderRadius: '4px', border: '1px solid #ddd' }} />
+              <textarea placeholder="Deskripsi" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} style={{ width: '100%', marginBottom: '15px', padding: '10px', borderRadius: '4px', border: '1px solid #ddd', minHeight: '100px' }}></textarea>
+              <input type="number" placeholder="Harga" step="0.01" value={formData.price} onChange={(e) => setFormData({ ...formData, price: e.target.value })} required style={{ width: '100%', marginBottom: '15px', padding: '10px', borderRadius: '4px', border: '1px solid #ddd' }} />
+              <input type="number" placeholder="Stok" value={formData.stock} onChange={(e) => setFormData({ ...formData, stock: e.target.value })} required style={{ width: '100%', marginBottom: '15px', padding: '10px', borderRadius: '4px', border: '1px solid #ddd' }} />
+              <select value={formData.category_id} onChange={(e) => setFormData({ ...formData, category_id: e.target.value })} required style={{ width: '100%', marginBottom: '15px', padding: '10px', borderRadius: '4px', border: '1px solid #ddd' }}>
+                <option value="">Pilih Kategori</option>
+                {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.category_name}</option>)}
+              </select>
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button type="button" onClick={() => { setShowForm(false); setFormData({ name: '', description: '', price: '', stock: '', category_id: '' }); }} style={{ padding: '10px 20px', borderRadius: '4px', border: '1px solid #ddd', cursor: 'pointer', background: '#f5f5f5' }}>Batal</button>
+                <button type="submit" className="btn-success">Simpan</button>
+              </div>
+            </form>
+          </div>
         )}
 
         <table className="admin-table">
@@ -160,17 +186,55 @@ export default function AdminProducts() {
           </thead>
           <tbody>
             {products.map(product => (
-              <tr key={product.id}>
-                <td>{product.id}</td>
-                <td>{product.name}</td>
-                <td>Rp {product.price?.toLocaleString('id-ID')}</td>
-                <td>{product.stock}</td>
-                <td>{categories.find(c => c.id === product.category_id)?.category_name || '-'}</td>
-                <td>
-                  <button onClick={() => handleEdit(product)} className="btn-edit">Edit</button>
-                  <button onClick={() => handleDelete(product.id)} className="btn-delete">Hapus</button>
-                </td>
-              </tr>
+              <React.Fragment key={product.id}>
+                <tr>
+                  <td>{product.id}</td>
+                  <td>{product.name}</td>
+                  <td>Rp {product.price?.toLocaleString('id-ID')}</td>
+                  <td>{product.stock}</td>
+                  <td>{categories.find(c => c.id === product.category_id)?.category_name || '-'}</td>
+                  <td>
+                    <button onClick={() => handleEdit(product)} className="btn-edit">Edit</button>
+                    <button onClick={() => handleDelete(product.id)} className="btn-delete">Hapus</button>
+                  </td>
+                </tr>
+                {/* Form Edit muncul langsung di bawah produk yang diklik */}
+                {editingId === product.id && showForm && (
+                  <tr style={{ background: '#f9f9f9' }}>
+                    <td colSpan="6" style={{ padding: '20px' }}>
+                      <form ref={formRef} onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                        <div style={{ gridColumn: '1 / -1' }}>
+                          <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>Nama Produk</label>
+                          <input type="text" placeholder="Nama Produk" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #ddd' }} />
+                        </div>
+                        <div style={{ gridColumn: '1 / -1' }}>
+                          <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>Deskripsi</label>
+                          <textarea placeholder="Deskripsi" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #ddd', minHeight: '100px' }}></textarea>
+                        </div>
+                        <div>
+                          <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>Harga</label>
+                          <input type="number" placeholder="Harga" step="0.01" value={formData.price} onChange={(e) => setFormData({ ...formData, price: e.target.value })} required style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #ddd' }} />
+                        </div>
+                        <div>
+                          <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>Stok</label>
+                          <input type="number" placeholder="Stok" value={formData.stock} onChange={(e) => setFormData({ ...formData, stock: e.target.value })} required style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #ddd' }} />
+                        </div>
+                        <div>
+                          <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>Kategori</label>
+                          <select value={formData.category_id} onChange={(e) => setFormData({ ...formData, category_id: e.target.value })} required style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #ddd' }}>
+                            <option value="">Pilih Kategori</option>
+                            {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.category_name}</option>)}
+                          </select>
+                        </div>
+                        <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                          <button type="button" onClick={() => { setShowForm(false); setEditingId(null); setFormData({ name: '', description: '', price: '', stock: '', category_id: '' }); }} style={{ padding: '10px 20px', borderRadius: '4px', border: '1px solid #ddd', cursor: 'pointer', background: '#f5f5f5' }}>Batal</button>
+                          <button type="submit" className="btn-success">Update</button>
+                        </div>
+                      </form>
+                    </td>
+                  </tr>
+                )}
+              </React.Fragment>
             ))}
           </tbody>
         </table>

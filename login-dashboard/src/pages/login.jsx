@@ -66,7 +66,7 @@ export default function Login() {
     <div className="login-container">
       <div className="login-box">
         <div className="login-header">
-          <h1>ATELVIA</h1>
+          <h1>Toko Pakaian "ATELVIA"</h1>
           <p>Masuk ke akun Anda</p>
         </div>
 

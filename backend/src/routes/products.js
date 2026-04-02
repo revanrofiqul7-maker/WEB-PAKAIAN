@@ -1,11 +1,9 @@
 const express = require("express");
 const router = express.Router();
-const pool = require("../db/pool");
+const supabase = require("../db/supabase");
 const { verifyToken, verifyAdmin } = require("../middleware/authorization");
 
 // NOTE: the products table should include an `image` column (TEXT) to store the URL/path.
-// Example SQL, run via psql or your migration tool:
-//   ALTER TABLE products ADD COLUMN image TEXT;
 // multer setup to handle image uploads for products
 const multer = require("multer");
 const path = require("path");
@@ -13,7 +11,6 @@ const path = require("path");
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     // store uploads in backend/public/uploads
-    // __dirname is backend/src/routes, so go up 2 levels to backend, then into public
     cb(null, path.join(__dirname, "../../public/uploads"));
   },
   filename: function (req, file, cb) {
@@ -27,8 +24,13 @@ const upload = multer({ storage });
 // === GET all products (Customer & Admin can read) ===
 router.get("/", verifyToken, async (req, res) => {
   try {
-    const result = await pool.query("SELECT * FROM products ORDER BY id ASC");
-    res.json(result.rows);
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .order('id', { ascending: true });
+    
+    if (error) throw error;
+    res.json(data || []);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -37,59 +39,82 @@ router.get("/", verifyToken, async (req, res) => {
 // === GET product by ID (Customer & Admin can read) ===
 router.get("/:id", verifyToken, async (req, res) => {
   try {
-    const result = await pool.query("SELECT * FROM products WHERE id=$1", [req.params.id]);
-    if (result.rowCount === 0) return res.status(404).json({ error: "Product not found" });
-    res.json(result.rows[0]);
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+    
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return res.status(404).json({ error: "Product not found" });
+      }
+      throw error;
+    }
+    
+    res.json(data);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 // === POST new product (Admin Only) ===
-// accepts multipart/form-data with an optional image file (field name "image")
 router.post("/", verifyToken, verifyAdmin, upload.single('image'), async (req, res) => {
   try {
     const { name, description, price, stock, category_id } = req.body;
-    // image may come as a URL in req.body.image or as an uploaded file
     let imagePath = req.body.image || null;
+    
     if (req.file) {
-      // prepend slash to make it a public path
       imagePath = `/uploads/${req.file.filename}`;
     }
-    const result = await pool.query(
-      `INSERT INTO products (name, description, price, stock, category_id, image)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [name, description, price, stock, category_id, imagePath]
-    );
-    res.status(201).json(result.rows[0]);
+    
+    const { data, error } = await supabase
+      .from('products')
+      .insert([{
+        name,
+        description,
+        price: parseFloat(price),
+        stock: parseInt(stock),
+        category_id: category_id ? parseInt(category_id) : null,
+        image: imagePath
+      }])
+      .select('*');
+    
+    if (error) throw error;
+    res.status(201).json(data[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 // === PUT update product (Admin Only) ===
-// can update fields and optionally replace image (via multipart/form-data)
 router.put("/:id", verifyToken, verifyAdmin, upload.single('image'), async (req, res) => {
   try {
-    // debug log incoming data
     console.log('PUT /products', req.params.id, 'body=', req.body, 'file=', req.file);
 
     const { name, description, price, stock, category_id } = req.body;
-    let imagePath = null;
+    
+    const updateData = {};
+    if (name !== undefined) updateData.name = name;
+    if (description !== undefined) updateData.description = description;
+    if (price !== undefined) updateData.price = parseFloat(price);
+    if (stock !== undefined) updateData.stock = parseInt(stock);
+    if (category_id !== undefined) updateData.category_id = category_id ? parseInt(category_id) : null;
+    
     if (req.file) {
-      imagePath = `/uploads/${req.file.filename}`;
+      updateData.image = `/uploads/${req.file.filename}`;
     } else if (req.body.image) {
-      imagePath = req.body.image;
+      updateData.image = req.body.image;
     }
-    // use COALESCE so that when imagePath is null we leave the existing value
-    // also update category_id if provided (form sends it)
-    const result = await pool.query(
-      `UPDATE products SET name=$1, description=$2, price=$3, stock=$4,
-           image=COALESCE($5, image), category_id=COALESCE($6, category_id)
-           WHERE id=$7 RETURNING *`,
-      [name, description, price, stock, imagePath, category_id || null, req.params.id]
-    );
-    res.json(result.rows[0]);
+
+    const { data, error } = await supabase
+      .from('products')
+      .update(updateData)
+      .eq('id', req.params.id)
+      .select('*');
+    
+    if (error) throw error;
+    res.json(data[0]);
   } catch (err) {
     console.error('PUT /products error', err);
     res.status(500).json({ error: err.message });
@@ -99,7 +124,12 @@ router.put("/:id", verifyToken, verifyAdmin, upload.single('image'), async (req,
 // === DELETE product (Admin Only) ===
 router.delete("/:id", verifyToken, verifyAdmin, async (req, res) => {
   try {
-    await pool.query("DELETE FROM products WHERE id=$1", [req.params.id]);
+    const { error } = await supabase
+      .from('products')
+      .delete()
+      .eq('id', req.params.id);
+    
+    if (error) throw error;
     res.json({ message: "Product deleted" });
   } catch (err) {
     res.status(500).json({ error: err.message });

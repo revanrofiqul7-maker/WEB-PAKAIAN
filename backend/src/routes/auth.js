@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const pool = require("../db/pool");
+const supabase = require("../db/supabase");
 require("dotenv").config();
 
 // ===== Fungsi Buat Token =====
@@ -32,25 +32,35 @@ router.post("/register", async (req, res) => {
       return res.status(400).json({ message: "Username, email, dan password harus diisi" });
     }
 
-    // Cek username/email
-    const checkUser = await pool.query(
-      "SELECT * FROM users WHERE username=$1 OR email=$2",
-      [username, email]
-    );
-    if (checkUser.rows.length > 0) {
+    // Cek username/email di Supabase
+    const { data: existingUsers, error: checkError } = await supabase
+      .from('users')
+      .select('*')
+      .or(`username.eq.${username},email.eq.${email}`);
+
+    if (checkError) throw checkError;
+    if (existingUsers && existingUsers.length > 0) {
       return res.status(400).json({ message: "Username atau email sudah terdaftar" });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const displayName = name || username; // Jika name tidak dikirim, gunakan username
+    const displayName = name || username;
 
-    const newUser = await pool.query(
-      `INSERT INTO users (name, username, email, password, role, membership)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, name, username, email, role, membership`,
-      [displayName, username, email, hashedPassword, role, membership]
-    );
+    const { data: newUser, error: insertError } = await supabase
+      .from('users')
+      .insert([{
+        name: displayName,
+        username,
+        email,
+        password: hashedPassword,
+        role,
+        membership: membership ? new Date() : null
+      }])
+      .select('id, name, username, email, role, membership');
 
-    res.json({ message: "Registrasi berhasil", user: newUser.rows[0] });
+    if (insertError) throw insertError;
+
+    res.json({ message: "Registrasi berhasil", user: newUser[0] });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -61,10 +71,18 @@ router.post("/login", async (req, res) => {
   try {
     const { username, password } = req.body;
 
-    // allow login by username or email
-    const result = await pool.query("SELECT * FROM users WHERE username=$1 OR email=$1", [username]);
-    const user = result.rows[0];
-    if (!user) return res.status(400).json({ error: "User not found" });
+    // Cari user berdasarkan username atau email di Supabase
+    const { data: users, error: selectError } = await supabase
+      .from('users')
+      .select('*')
+      .or(`username.eq.${username},email.eq.${username}`);
+
+    if (selectError) throw selectError;
+    if (!users || users.length === 0) {
+      return res.status(400).json({ error: "User not found" });
+    }
+
+    const user = users[0];
 
     // CEK USER DINONAKTIFKAN
     if (!user.membership) {
@@ -77,11 +95,16 @@ router.post("/login", async (req, res) => {
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
 
-    await pool.query(
-      `INSERT INTO tokens (user_id, token, expires_at)
-       VALUES ($1, $2, NOW() + INTERVAL '7 days')`,
-      [user.id, refreshToken]
-    );
+    // Simpan refresh token di Supabase
+    const { error: tokenError } = await supabase
+      .from('tokens')
+      .insert([{
+        user_id: user.id,
+        token: refreshToken,
+        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+      }]);
+
+    if (tokenError) throw tokenError;
 
     const { password: _, ...userData } = user;
 
@@ -102,14 +125,32 @@ router.post("/token", async (req, res) => {
   if (!refreshToken) return res.status(401).json({ error: "No refresh token" });
 
   try {
-    const tokenCheck = await pool.query("SELECT * FROM tokens WHERE token=$1", [refreshToken]);
-    if (tokenCheck.rowCount === 0) return res.status(403).json({ error: "Invalid token" });
+    // Cek token di Supabase
+    const { data: tokenData, error: tokenError } = await supabase
+      .from('tokens')
+      .select('*')
+      .eq('token', refreshToken);
+
+    if (tokenError) throw tokenError;
+    if (!tokenData || tokenData.length === 0) {
+      return res.status(403).json({ error: "Invalid token" });
+    }
 
     jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET, async (err, decoded) => {
       if (err) return res.status(403).json({ error: "Invalid or expired token" });
 
-      const userResult = await pool.query("SELECT * FROM users WHERE id=$1", [decoded.id]);
-      const currentUser = userResult.rows[0];
+      // Ambil user data dari Supabase
+      const { data: currentUserArray, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', decoded.id);
+
+      if (userError) throw userError;
+      if (!currentUserArray || currentUserArray.length === 0) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const currentUser = currentUserArray[0];
 
       // CEK USER DINONAKTIFKAN
       if (!currentUser || !currentUser.membership) {
@@ -130,7 +171,12 @@ router.post("/logout", async (req, res) => {
   if (!refreshToken) return res.status(400).json({ error: "No refresh token" });
 
   try {
-    await pool.query("DELETE FROM tokens WHERE token=$1", [refreshToken]);
+    const { error: deleteError } = await supabase
+      .from('tokens')
+      .delete()
+      .eq('token', refreshToken);
+
+    if (deleteError) throw deleteError;
     res.json({ message: "Logged out successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -205,20 +251,22 @@ module.exports.swaggerDocs = {
           "application/json": {
             schema: {
               type: "object",
-              properties: { refreshToken: { type: "string" } }
+              properties: {
+                refreshToken: { type: "string" }
+              }
             }
           }
         }
       },
       responses: {
-        200: { description: "Token diperbarui" },
-        403: { description: "Akun dinonaktifkan / token invalid" }
+        200: { description: "Access token baru diberikan" },
+        403: { description: "Invalid or expired token" }
       }
     }
   },
   "/auth/logout": {
     post: {
-      summary: "Logout user dan hapus refresh token",
+      summary: "Logout user",
       tags: ["Authentication"],
       requestBody: {
         required: true,
@@ -226,12 +274,16 @@ module.exports.swaggerDocs = {
           "application/json": {
             schema: {
               type: "object",
-              properties: { refreshToken: { type: "string" } }
+              properties: {
+                refreshToken: { type: "string" }
+              }
             }
           }
         }
       },
-      responses: { 200: { description: "Logout berhasil" } }
+      responses: {
+        200: { description: "Logged out successfully" }
+      }
     }
   }
 };

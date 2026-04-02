@@ -29,7 +29,12 @@ export default function Dashboard() {
       fetchCategories();
       fetchUsers();
     }
-  }, [authUser]);
+
+    // Redirect customer away from overview tab if they try to access it
+    if (authUser?.role === 'customer' && activeTab === 'overview') {
+      setActiveTab('products');
+    }
+  }, [authUser, activeTab]);
 
   const fetchProducts = async () => {
     try {
@@ -229,7 +234,7 @@ export default function Dashboard() {
     <div className="dashboard-container">
       <header className="dashboard-header">
         <div className="header-content">
-          <h1>Toko Pakaian kATELVIA</h1>
+          <h1>Toko Pakaian "ATELVIA"</h1>
           <div className="user-info">
             <div className="user-details">
               <span>Selamat datang, <strong>{user.name}</strong></span>
@@ -254,14 +259,16 @@ export default function Dashboard() {
       <div className="dashboard-body">
         <nav className="sidebar">
           <ul className="nav-menu">
-            <li>
-              <button
-                className={`nav-item ${activeTab === 'overview' ? 'active' : ''}`}
-                onClick={() => setActiveTab('overview')}
-              >
-                Ringkasan
-              </button>
-            </li>
+            {(user.role === 'admin' || user.role === 'cashier') && (
+              <li>
+                <button
+                  className={`nav-item ${activeTab === 'overview' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('overview')}
+                >
+                  Ringkasan
+                </button>
+              </li>
+            )}
             <li>
               <button
                 className={`nav-item ${activeTab === 'products' ? 'active' : ''}`}
@@ -310,8 +317,8 @@ export default function Dashboard() {
         </nav>
 
         <main className="main-content">
-          {/* Tab Overview */}
-          {activeTab === 'overview' && (
+          {/* Tab Overview - Admin and Cashier Only */}
+          {activeTab === 'overview' && (user.role === 'admin' || user.role === 'cashier') && (
             <div className="tab-content">
               <h2>Ringkasan Dashboard</h2>
               <div className="stats-grid">
