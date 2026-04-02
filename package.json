@@ -1,0 +1,14 @@
+{
+  "name": "web-pakaian-root",
+  "version": "1.0.0",
+  "description": "Web pakaian project root",
+  "private": true,
+  "scripts": {
+    "start": "cd backend && npm start",
+    "install-deps": "cd backend && npm install"
+  },
+  "engines": {
+    "node": "18.x",
+    "npm": "9.x"
+  }
+}

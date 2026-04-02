@@ -1,7 +1,5 @@
 {
-  "build": {
-    "builder": "nixpacks",
-    "buildCommand": "cd backend && npm install"
-  },
-  "start": "cd backend && npm start"
+  "builder": "dockerfile",
+  "ignoredFiles": ["node_modules", ".git", "*.md"],
+  "startCommand": "cd backend && npm install && npm start"
 }
