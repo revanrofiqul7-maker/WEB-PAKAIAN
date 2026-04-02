@@ -2,6 +2,13 @@ const express = require("express");
 const router = express.Router();
 const supabase = require("../db/supabase");
 const { verifyToken, verifyAdmin } = require("../middleware/authorization");
+const { createClient } = require('@supabase/supabase-js');
+
+// Create a Supabase client with service role for file uploads (bypasses RLS)
+const supabaseAdmin = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_KEY
+);
 
 // multer setup to handle image uploads for products
 const multer = require("multer");
@@ -66,11 +73,11 @@ router.post("/", verifyToken, verifyAdmin, upload.single('image'), async (req, r
     const { name, description, price, stock, category_id } = req.body;
     let imageUrl = null;
     
-    // Upload image to Supabase Storage jika ada file
+    // Upload image to Supabase Storage using service role (bypasses RLS)
     if (req.file) {
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${req.file.originalname.split('.').pop()}`;
       
-      const { error: uploadError } = await supabase
+      const { error: uploadError } = await supabaseAdmin
         .storage
         .from('products')
         .upload(fileName, req.file.buffer, {
@@ -79,7 +86,7 @@ router.post("/", verifyToken, verifyAdmin, upload.single('image'), async (req, r
       
       if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
       
-      // Get public URL
+      // Get public URL using regular supabase client
       const { data } = supabase
         .storage
         .from('products')
@@ -119,11 +126,11 @@ router.put("/:id", verifyToken, verifyAdmin, upload.single('image'), async (req,
     if (stock !== undefined) updateData.stock = parseInt(stock);
     if (category_id !== undefined) updateData.category_id = category_id ? parseInt(category_id) : null;
     
-    // Handle image upload to Supabase Storage
+    // Handle image upload to Supabase Storage using service role
     if (req.file) {
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${req.file.originalname.split('.').pop()}`;
       
-      const { error: uploadError } = await supabase
+      const { error: uploadError } = await supabaseAdmin
         .storage
         .from('products')
         .upload(fileName, req.file.buffer, {
@@ -167,11 +174,11 @@ router.delete("/:id", verifyToken, verifyAdmin, async (req, res) => {
     
     if (getError) throw getError;
     
-    // Delete image from Supabase Storage if exists
+    // Delete image from Supabase Storage if exists using service role
     if (product?.image) {
       try {
         const fileName = product.image.split('/').pop();
-        await supabase
+        await supabaseAdmin
           .storage
           .from('products')
           .remove([fileName]);
