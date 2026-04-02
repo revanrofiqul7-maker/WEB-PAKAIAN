@@ -1,5 +1,3 @@
 {
-  "builder": "dockerfile",
-  "ignoredFiles": ["node_modules", ".git", "*.md"],
-  "startCommand": "cd backend && npm install && npm start"
+  "builder": "dockerfile"
 }
