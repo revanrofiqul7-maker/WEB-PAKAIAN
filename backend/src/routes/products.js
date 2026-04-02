@@ -3,23 +3,25 @@ const router = express.Router();
 const supabase = require("../db/supabase");
 const { verifyToken, verifyAdmin } = require("../middleware/authorization");
 
-// NOTE: the products table should include an `image` column (TEXT) to store the URL/path.
 // multer setup to handle image uploads for products
 const multer = require("multer");
 const path = require("path");
 
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    // store uploads in backend/public/uploads
-    cb(null, path.join(__dirname, "../../public/uploads"));
-  },
-  filename: function (req, file, cb) {
-    const uniqueName = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, uniqueName + path.extname(file.originalname));
+// Use memory storage instead of disk storage
+const storage = multer.memoryStorage();
+const upload = multer({ 
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  fileFilter: (req, file, cb) => {
+    // Only allow image files
+    const allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'));
+    }
   }
 });
-
-const upload = multer({ storage });
 
 // === GET all products (Customer & Admin can read) ===
 router.get("/", verifyToken, async (req, res) => {
@@ -62,10 +64,28 @@ router.get("/:id", verifyToken, async (req, res) => {
 router.post("/", verifyToken, verifyAdmin, upload.single('image'), async (req, res) => {
   try {
     const { name, description, price, stock, category_id } = req.body;
-    let imagePath = req.body.image || null;
+    let imageUrl = null;
     
+    // Upload image to Supabase Storage jika ada file
     if (req.file) {
-      imagePath = `/uploads/${req.file.filename}`;
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${req.file.originalname.split('.').pop()}`;
+      
+      const { error: uploadError } = await supabase
+        .storage
+        .from('products')
+        .upload(fileName, req.file.buffer, {
+          contentType: req.file.mimetype
+        });
+      
+      if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
+      
+      // Get public URL
+      const { data } = supabase
+        .storage
+        .from('products')
+        .getPublicUrl(fileName);
+      
+      imageUrl = data?.publicUrl;
     }
     
     const { data, error } = await supabase
@@ -76,7 +96,7 @@ router.post("/", verifyToken, verifyAdmin, upload.single('image'), async (req, r
         price: parseFloat(price),
         stock: parseInt(stock),
         category_id: category_id ? parseInt(category_id) : null,
-        image: imagePath
+        image: imageUrl
       }])
       .select('*');
     
@@ -90,8 +110,6 @@ router.post("/", verifyToken, verifyAdmin, upload.single('image'), async (req, r
 // === PUT update product (Admin Only) ===
 router.put("/:id", verifyToken, verifyAdmin, upload.single('image'), async (req, res) => {
   try {
-    console.log('PUT /products', req.params.id, 'body=', req.body, 'file=', req.file);
-
     const { name, description, price, stock, category_id } = req.body;
     
     const updateData = {};
@@ -101,8 +119,25 @@ router.put("/:id", verifyToken, verifyAdmin, upload.single('image'), async (req,
     if (stock !== undefined) updateData.stock = parseInt(stock);
     if (category_id !== undefined) updateData.category_id = category_id ? parseInt(category_id) : null;
     
+    // Handle image upload to Supabase Storage
     if (req.file) {
-      updateData.image = `/uploads/${req.file.filename}`;
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${req.file.originalname.split('.').pop()}`;
+      
+      const { error: uploadError } = await supabase
+        .storage
+        .from('products')
+        .upload(fileName, req.file.buffer, {
+          contentType: req.file.mimetype
+        });
+      
+      if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
+      
+      const { data } = supabase
+        .storage
+        .from('products')
+        .getPublicUrl(fileName);
+      
+      updateData.image = data?.publicUrl;
     } else if (req.body.image) {
       updateData.image = req.body.image;
     }
@@ -116,7 +151,6 @@ router.put("/:id", verifyToken, verifyAdmin, upload.single('image'), async (req,
     if (error) throw error;
     res.json(data[0]);
   } catch (err) {
-    console.error('PUT /products error', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -124,12 +158,35 @@ router.put("/:id", verifyToken, verifyAdmin, upload.single('image'), async (req,
 // === DELETE product (Admin Only) ===
 router.delete("/:id", verifyToken, verifyAdmin, async (req, res) => {
   try {
-    const { error } = await supabase
+    // Get product first to get image URL
+    const { data: product, error: getError } = await supabase
+      .from('products')
+      .select('image')
+      .eq('id', req.params.id)
+      .single();
+    
+    if (getError) throw getError;
+    
+    // Delete image from Supabase Storage if exists
+    if (product?.image) {
+      try {
+        const fileName = product.image.split('/').pop();
+        await supabase
+          .storage
+          .from('products')
+          .remove([fileName]);
+      } catch (storageError) {
+        console.warn('Warning: Could not delete image from storage', storageError);
+      }
+    }
+    
+    // Delete product from database
+    const { error: deleteError } = await supabase
       .from('products')
       .delete()
       .eq('id', req.params.id);
     
-    if (error) throw error;
+    if (deleteError) throw deleteError;
     res.json({ message: "Product deleted" });
   } catch (err) {
     res.status(500).json({ error: err.message });
