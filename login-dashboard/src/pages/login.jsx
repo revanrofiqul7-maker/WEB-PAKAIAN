@@ -38,6 +38,7 @@ export default function Login() {
     const loginValue = email.trim();
 
     try {
+      console.log(`Attempting login to ${API_URL}/api/auth/login`);
       const res = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -45,19 +46,25 @@ export default function Login() {
       });
 
       const data = await res.json();
+      console.log('Login response:', { status: res.status, data });
 
       if (!res.ok) {
-        setError(data.error || data.message || 'Login gagal');
+        const errorMsg = data.error || data.message || 'Login gagal';
+        console.error('Login error response:', errorMsg);
+        setError(errorMsg);
         setLoading(false);
         return;
       }
 
       // Save to auth context with refreshToken
+      console.log('Login successful, redirecting to dashboard');
       login(data.user, data.accessToken, data.refreshToken);
       navigate('/dashboard');
     } catch (err) {
-      console.error('Login error:', err);
-      setError('Gagal terhubung ke server');
+      console.error('Login catch error:', err);
+      const errorMsg = err.message || 'Gagal terhubung ke server';
+      console.error('Final error:', errorMsg);
+      setError(`Tidak terhubung ke server: ${errorMsg}`);
       setLoading(false);
     }
   };
